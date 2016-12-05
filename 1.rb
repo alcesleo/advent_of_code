@@ -1,11 +1,21 @@
-Position = Struct.new(:x, :y)
+Position = Struct.new(:x, :y) do
+  def manhattan_distance
+    x.abs + y.abs
+  end
+
+  def to_s
+    "x=#{x}, y=#{y}"
+  end
+end
+
 
 class Player
-  attr_reader :winds, :position
+  attr_reader :winds, :position, :travel_log
 
   def initialize
-    @winds    = [:north, :east, :south, :west].cycle
-    @position = Position[0, 0]
+    @winds      = [:north, :east, :south, :west].cycle
+    @position   = Position[0, 0]
+    @travel_log = []
   end
 
   def navigate(instructions)
@@ -14,10 +24,6 @@ class Player
       blocks.times do walk end
     end
     nil
-  end
-
-  def manhattan_distance
-    position.x.abs + position.y.abs
   end
 
   def parse(instructions)
@@ -45,11 +51,23 @@ class Player
   end
 
   def walk(blocks = 1)
+    travel_log << position.dup
+
     case facing
     when :north then position.y += blocks
     when :south then position.y -= blocks
     when :east  then position.x += blocks
     when :west  then position.x -= blocks
+    end
+
+    nil
+  end
+
+  def first_revisited_intersection
+    path = []
+    travel_log.each do |step|
+      break step if path.include?(step)
+      path << step
     end
   end
 end
@@ -70,7 +88,7 @@ describe Player do
   end
 
   it "walks" do
-    player.walk
+    player.walk.must_equal nil
     player.position.must_equal Position[0, 1]
 
     player.turn
@@ -97,7 +115,12 @@ describe Player do
 
   it "calculates distance in blocks from its starting position" do
     player.navigate("R5, L5, R5, R3")
-    player.manhattan_distance.must_equal 12
+    player.position.manhattan_distance.must_equal 12
+  end
+
+  it "keeps track of when it goes over the same intersection twice" do
+    player.navigate("R8, R4, R4, R8")
+    player.first_revisited_intersection.must_equal Position[4, 0]
   end
 end
 
@@ -109,4 +132,6 @@ INSTRUCTIONS = "R2, L1, R2, R1, R1, L3, R3, L5, L5, L2, L1, R4, R1, R3, L5, L5, 
 p = Player.new
 p.navigate(INSTRUCTIONS)
 
-puts "The Easter Bunny HQ is at #{p.position}, which is #{p.manhattan_distance} blocks away."
+puts "The destination is #{p.position}, which is #{p.position.manhattan_distance} blocks away."
+puts "The first revisited intersection is #{p.first_revisited_intersection}, which is #{p.first_revisited_intersection.manhattan_distance} blocks away"
+puts
