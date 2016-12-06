@@ -7,8 +7,8 @@ class Room < Struct.new(:encrypted_name)
     encrypted_name[/(\d+)\[/, 1].to_i
   end
 
-  def chars
-    encrypted_name[/[a-z-]+/].gsub("-", "").chars
+  def bare_encrypted_name
+    encrypted_name[/[a-z-]+/].chomp("-")
   end
 
   def valid_checksum?
@@ -16,16 +16,35 @@ class Room < Struct.new(:encrypted_name)
   end
 
   def generate_checksum
-    character_counts = chars.each_with_object(Hash.new(0)) do |char, counts|
-      counts[char] += 1
-    end
-
-    character_counts
-      .to_a
+    bare_encrypted_name
+      .chars
+      .reject { |char| char == "-" }
+      .each_with_object(Hash.new(0)) { |char, counts| counts[char] += 1 }
       .sort_by { |char, count| [-count, char] } # Descending on counts, secondary alphabetical sorting
       .map(&:first)
       .take(5)
       .join
+  end
+
+  def name
+    bare_encrypted_name.chars.map { |char| decipher(char) }.join
+  end
+
+  def to_s
+    "#<Room name: #{name}, sector_id: #{sector_id}>"
+  end
+
+  private
+
+  def decipher(char)
+    return " " if char == "-"
+
+    ('a'..'z')
+      .cycle
+      .lazy
+      .drop_while { |c| c != char }
+      .drop(sector_id)
+      .next
   end
 end
 
@@ -42,7 +61,7 @@ describe Room do
   end
 
   it "extracts the letters in the ID" do
-    Room.new("not-a-real-room-404[oarel]").chars.must_equal %w[n o t a r e a l r o o m]
+    Room.new("not-a-real-room-404[oarel]").bare_encrypted_name.must_equal "not-a-real-room"
   end
 
   it "generates checksums" do
@@ -57,17 +76,27 @@ describe Room do
     Room.new("not-a-real-room-404[oarel]").valid_checksum?.must_equal true
     Room.new("totally-real-room-200[decoy]").valid_checksum?.must_equal false
   end
+
+  it "deciphers the room name" do
+    Room.new("qzmt-zixmtkozy-ivhz-343[zimth]").name.must_equal("very encrypted name")
+  end
 end
 
-sum = DATA
-  .read
+
+input = DATA.read
+
+rooms = input
   .split("\n")
   .map { |encrypted_name| Room.new(encrypted_name) }
-  .select { |room| room.valid_checksum? }
+
+valid_rooms = rooms.select { |room| room.valid_checksum? }
+
+sum = valid_rooms
   .map(&:sector_id)
   .inject(&:+)
 
 puts "The sum of the sector IDs of the real rooms is #{sum}"
+puts "The North Pole Objects are stored in #{valid_rooms.select { |room| room.name =~ /north/ }.first}"
 
 __END__
 bkwzkqsxq-tovvilokx-nozvyiwoxd-172[fstek]
