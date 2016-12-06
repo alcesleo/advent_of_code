@@ -6,7 +6,21 @@ class Triangle < Struct.new(:sides)
   end
 
   def self.create_batch(input)
-    input.split("\n").map { |line| Triangle.new(line.split("\s").map(&:to_i)) }
+    input
+      .split("\s")
+      .map(&:to_i)
+      .each_slice(3)
+      .map { |sides| Triangle.new(sides) }
+  end
+
+  def self.create_vertical_batch(input)
+    input
+      .split("\s")
+      .map(&:to_i)
+      .each_slice(3)
+      .each_slice(3)
+      .flat_map(&:transpose)
+      .map { |sides| Triangle.new(sides) }
   end
 end
 
@@ -28,11 +42,35 @@ describe Triangle do
   272  511  358
     INPUT
   end
+
+  it "creates vertical batches of triangles" do
+    input = <<-INPUT
+  785  516  744
+  272  511  358
+  801  791  693
+  572  150   74
+  644  534  138
+  191  396  196
+    INPUT
+
+    expected_outcome = [
+      Triangle.new([785, 272, 801]),
+      Triangle.new([516, 511, 791]),
+      Triangle.new([744, 358, 693]),
+      Triangle.new([572, 644, 191]),
+      Triangle.new([150, 534, 396]),
+      Triangle.new([74, 138, 196]),
+    ]
+
+    Triangle.create_vertical_batch(input).must_equal expected_outcome
+  end
 end
 
 input = DATA.read
-
 puts "The number of possible triangles is #{Triangle.create_batch(input).map(&:possible?).count { |p| !!p }}"
+puts "The number of possible triangles in vertical groups is #{Triangle.create_vertical_batch(input).map(&:possible?).count { |p| !!p }}"
+puts "The total number of lines are #{input.split("\n").count}"
+puts
 
 __END__
   785  516  744
