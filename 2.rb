@@ -1,8 +1,25 @@
-class Keypad
-  attr_reader :button, :pressed_buttons
+Position = Struct.new(:x, :y)
 
-  def initialize(starting_button = 5)
-    @button = starting_button
+BASIC_KEYPAD_LAYOUT = [
+  [1, 2, 3],
+  [4, 5, 6],
+  [7, 8, 9],
+]
+
+STRANGE_KEYPAD_LAYOUT = [
+  [nil, nil, 1,   nil, nil],
+  [nil, 2,   3,   4,   nil],
+  [5,   6,   7,   8,   9],
+  [nil, "A", "B", "C", nil],
+  [nil, nil, "D", nil, nil],
+]
+
+class Keypad
+  attr_reader :position, :layout, :pressed_buttons
+
+  def initialize(layout, position)
+    @layout = layout
+    @position = position
     @pressed_buttons = []
   end
 
@@ -16,6 +33,10 @@ class Keypad
     end
   end
 
+  def button
+    layout[position.y][position.x]
+  end
+
   def code
     pressed_buttons.join
   end
@@ -25,32 +46,53 @@ class Keypad
   end
 
   def move_finger(direction)
-    case direction
-    when "U" then self.button -= 3 unless [1, 2, 3].include?(button)
-    when "D" then self.button += 3 unless [7, 8, 9].include?(button)
-    when "L" then self.button -= 1 unless [1, 4, 7].include?(button)
-    when "R" then self.button += 1 unless [3, 6, 9].include?(button)
-    end
+    resulting_position = case direction
+                         when "U" then Position[position.x, position.y - 1]
+                         when "D" then Position[position.x, position.y + 1]
+                         when "L" then Position[position.x - 1, position.y]
+                         when "R" then Position[position.x + 1, position.y]
+                         end
+
+    self.position = resulting_position if within_layout?(resulting_position)
   end
 
   private
 
-  attr_writer :button
+  attr_writer :button, :position
+
+  def within_layout?(position)
+    return false if position.x < 0 || position.y < 0
+    return false if layout.fetch(position.y, [])[position.x].nil?
+    true
+  end
 end
 
 require "minitest/spec"
 require "minitest/autorun"
 
 describe Keypad do
-  let(:keypad) { Keypad.new }
+  let(:keypad) { Keypad.new(BASIC_KEYPAD_LAYOUT, Position[1, 1]) }
 
   it "moves the finger" do
+    fake_layout = [
+      [1, 2, 3],
+      [nil, 5, nil],
+      [7, 8, 9],
+    ]
+    keypad = Keypad.new(fake_layout, Position[1, 1])
+
     keypad.move_finger("U")
     keypad.button.must_equal 2
     keypad.move_finger("U")
     keypad.button.must_equal 2
 
     keypad.move_finger("D")
+    keypad.button.must_equal 5
+
+    keypad.move_finger("R")
+    keypad.button.must_equal 5
+
+    keypad.move_finger("L")
     keypad.button.must_equal 5
 
     keypad.move_finger("D")
@@ -85,8 +127,6 @@ describe Keypad do
   end
 
   it "follows instructions" do
-    keypad = Keypad.new
-
     keypad.punch_code(<<~TEXT)
       ULL
       RRDDD
@@ -98,9 +138,14 @@ describe Keypad do
   end
 end
 
-keypad = Keypad.new
-keypad.punch_code(DATA.read)
-puts "The code is #{keypad.code}"
+input = DATA.read
+keypad = Keypad.new(BASIC_KEYPAD_LAYOUT, Position[1, 1])
+keypad.punch_code(input)
+puts "The code with a basic keypad layout isis #{keypad.code}"
+
+keypad = Keypad.new(STRANGE_KEYPAD_LAYOUT, Position[0, 2])
+keypad.punch_code(input)
+puts "The code with a fucked up keypad layout isis #{keypad.code}"
 
 __END__
 UDRLRRRUULUUDULRULUDRDRURLLDUUDURLUUUDRRRLUUDRUUDDDRRRLRURLLLDDDRDDRUDDULUULDDUDRUUUDLRLLRLDUDUUUUDLDULLLDRLRLRULDDDDDLULURUDURDDLLRDLUDRRULDURDDLUDLLRRUDRUDDDLLURULRDDDRDRRLLUUDDLLLLRLRUULRDRURRRLLLLDULDDLRRRRUDRDULLLDDRRRDLRLRRRLDRULDUDDLDLUULRDDULRDRURRURLDULRUUDUUURDRLDDDURLDURLDUDURRLLLLRDDLDRUURURRRRDRRDLUULLURRDLLLDLDUUUDRDRULULRULUUDDULDUURRLRLRRDULDULDRUUDLLUDLLLLUDDULDLLDLLURLLLRUDRDLRUDLULDLLLUDRLRLUDLDRDURDDULDURLLRRRDUUDLRDDRUUDLUURLDRRRRRLDDUUDRURUDLLLRRULLRLDRUURRRRRLRLLUDDRLUDRRDUDUUUDRUDULRRULRDRRRDDRLUUUDRLLURURRLLDUDRUURDLRURLLRDUDUUDLLLUULLRULRLDLRDDDU
