@@ -5,6 +5,11 @@ class IPv7 < Struct.new(:address)
     address_parts.supernet_sequences.any?(&abba?) && address_parts.hypernet_sequences.none?(&abba?)
   end
 
+  def ssl?
+    abas = address_parts.supernet_sequences.flat_map(&find_abas)
+    address_parts.hypernet_sequences.any?(&bab?(abas))
+  end
+
   private
 
   def address_parts
@@ -21,14 +26,35 @@ class IPv7 < Struct.new(:address)
   end
 
   def abba?
-    -> (text) {
-      text
+    -> (sequence) {
+      sequence
         .chars
         .each_cons(4)
         .any? { |chars|
           first_half, second_half = chars.each_slice(2).to_a
           first_half == second_half.reverse && first_half.uniq.length == 2
         }
+    }
+  end
+
+  def find_abas
+    -> (sequence) {
+      sequence
+        .chars
+        .each_cons(3)
+        .select { |(a, b, c)| a == c && a != b }
+        .map(&:join)
+    }
+  end
+
+  def bab?(corresponding_abas)
+    -> (sequence) {
+      sequence
+        .chars
+        .each_cons(3)
+        .select { |(a, b, c)| a == c && a != b }
+        .map { |(b, a, _)| [a, b, a].join }
+        .any? { |bab| corresponding_abas.include?(bab) }
     }
   end
 end
@@ -44,12 +70,29 @@ describe IPv7 do
     IPv7.new("ioxxoj[asdfgh]zxcvbn").tls?.must_equal true
   end
 
+  it "detects whether the address supports SSL" do
+    IPv7.new("aba[bab]xyz").ssl?.must_equal true
+    IPv7.new("xyx[xyx]xyx").ssl?.must_equal false
+    IPv7.new("aaa[kek]eke").ssl?.must_equal true
+    IPv7.new("zazbz[bzb]cdb").ssl?.must_equal true
+    IPv7.new("abayzy[abb]qwery[baa]azerty").ssl?.must_equal false
+  end
+
   # private, can be deleted as long as the tests above pass
 
   it "detects ABBA" do
     IPv7.new.send(:abba?).("abba").must_equal true
     IPv7.new.send(:abba?).("aaaa").must_equal false
     IPv7.new.send(:abba?).("ioxxoj").must_equal true
+  end
+
+  it "finds ABAs" do
+    IPv7.new.send(:find_abas).("zazbz").must_equal ["zaz", "zbz"]
+  end
+
+  it "finds corresponding BABs" do
+    IPv7.new.send(:bab?, ["zaz", "zbz"]).("abzb").must_equal true
+    IPv7.new.send(:bab?, ["zaz", "zbz"]).("azba").must_equal false
   end
 
   it "deconstructs an address" do
@@ -63,9 +106,11 @@ describe IPv7 do
 end
 
 input = DATA.read
-count = input.split("\n").count { |address| IPv7.new(address).tls? }
+count_tls = input.split("\n").count { |address| IPv7.new(address).tls? }
+count_ssl = input.split("\n").count { |address| IPv7.new(address).ssl? }
 
-puts "The amount of IPv7 addresses supporting TLS is #{count}"
+puts "The amount of IPv7 addresses supporting TLS is #{count_tls}"
+puts "The amount of IPv7 addresses supporting SSL is #{count_ssl}"
 
 __END__
 rhamaeovmbheijj[hkwbkqzlcscwjkyjulk]ajsxfuemamuqcjccbc
