@@ -8,10 +8,23 @@ class ErrorCorrector
       .join
   end
 
+  def correct_modified(corrupted_data)
+    corrupted_data
+      .split("\n")
+      .map(&:chars)
+      .transpose
+      .map { |column| least_frequent(column) }
+      .join
+  end
+
   private
 
   def most_frequent(array)
     array.sort_by { |char| array.grep(char).length }.last
+  end
+
+  def least_frequent(array)
+    array.sort_by { |char| array.grep(char).length }.first
   end
 end
 
@@ -39,9 +52,32 @@ describe ErrorCorrector do
       enarar
     INPUT
   end
+
+  it "corrects modified corrupted data" do
+    ErrorCorrector.new.correct_modified(<<~INPUT).must_equal "advent"
+      eedadn
+      drvtee
+      eandsr
+      raavrd
+      atevrs
+      tsrnev
+      sdttsa
+      rasrtv
+      nssdts
+      ntnada
+      svetve
+      tesnvt
+      vntsnd
+      vrdear
+      dvrsen
+      enarar
+    INPUT
+  end
 end
 
-puts "The uncorrupted data spells: #{ErrorCorrector.new.correct(DATA.read)}"
+input = DATA.read
+puts "The uncorrupted data spells: #{ErrorCorrector.new.correct(input)}"
+puts "The modified uncorrupted data spells: #{ErrorCorrector.new.correct_modified(input)}"
 
 __END__
 wxupppln
