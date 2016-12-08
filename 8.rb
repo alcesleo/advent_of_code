@@ -1,16 +1,14 @@
-require "minitest/spec"
-require "minitest/autorun"
-
 class Display
-  ON  = "#"
-  OFF = "."
+  attr_reader :width, :height, :on, :off, :visualize, :pixels
 
-  attr_reader :width, :height, :pixels
+  def initialize(width:, height:, on: "#", off: ".", visualize: false)
+    @width     = width
+    @height    = height
+    @on        = on
+    @off       = off
+    @visualize = visualize
 
-  def initialize(width:, height:)
-    @width = width
-    @height = height
-    @pixels = height.times.map { [OFF] * width }
+    @pixels = height.times.map { [off] * width }
   end
 
   def draw
@@ -23,10 +21,16 @@ class Display
     when /rotate row y=(\d+) by (\d+)/    then rotate_row($1.to_i, $2.to_i)
     when /rotate column x=(\d+) by (\d+)/ then rotate_column($1.to_i, $2.to_i)
     end
+
+    if visualize
+      system "clear"
+      draw
+      sleep 0.05
+    end
   end
 
   def count_lit_pixels
-    pixels.map { |row| row.count { |pixel| pixel == ON } }.inject(&:+)
+    pixels.map { |row| row.count { |pixel| pixel == on } }.inject(&:+)
   end
 
   private
@@ -36,7 +40,7 @@ class Display
   def rect(w, h)
     (0...w).each do |row|
       (0...h).each do |column|
-        pixels[column][row] = ON
+        pixels[column][row] = on
       end
     end
   end
@@ -53,6 +57,9 @@ class Display
     self.pixels = pixels.transpose
   end
 end
+
+require "minitest/spec"
+require "minitest/autorun"
 
 describe Display do
   subject { Display.new(width: 7, height: 3) }
@@ -97,13 +104,12 @@ describe Display do
 end
 
 input = DATA.read
-display = Display.new(width: 50, height: 7)
+display = Display.new(width: 50, height: 6, on: "█", off: " ", visualize: true)
 
 input.split("\n").each do |instruction|
   display.perform_operation(instruction)
 end
 
-display.draw
 puts "Number of lit pixels is #{display.count_lit_pixels}"
 
 __END__
