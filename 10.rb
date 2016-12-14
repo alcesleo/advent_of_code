@@ -98,7 +98,7 @@ class Bot
     high_receiver.receive(high)
 
     if low == 17 && high == 61
-      puts inspect
+      puts "Bot #{id} is responsible for comparing 17 and 61"
     end
 
     microchips.clear
@@ -140,6 +140,9 @@ end
 
 factory = Factory.new(DATA.read)
 factory.operate
+
+part_2_answer = [0, 1, 2].flat_map { |n| factory.output_bin(n).microchips }.inject(&:*)
+puts "The product of the microchip values in output bins 0, 1 and 2 is #{part_2_answer}"
 
 __END__
 bot 37 gives low to bot 114 and high to bot 150
